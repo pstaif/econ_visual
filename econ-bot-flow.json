@@ -1,0 +1,64 @@
+{
+  "nodes": [
+    {
+      "id": "input",
+      "type": "TextInput",
+      "data": {
+        "name": "Economic Topic",
+        "description": "Enter economic concept name (e.g., 'Absolute Advantage')"
+      }
+    },
+    {
+      "id": "wiki_fetch",
+      "type": "URLLoader",
+      "data": {
+        "url": "https://en.wikipedia.org/wiki/{input}"
+      }
+    },
+    {
+      "id": "meta_categorizer",
+      "type": "LLMChain",
+      "data": {
+        "model": "gpt-4",
+        "system_prompt": "[Meta-Categorization System Prompt from above]",
+        "user_prompt": "Concept: {input}\nDefinition: {wiki_fetch.output}\n\nAnalyze and extract meta-categories.",
+        "output_parser": "json"
+      }
+    },
+    {
+      "id": "scenario_designer",
+      "type": "LLMChain",
+      "data": {
+        "model": "gpt-4",
+        "system_prompt": "[Scenario Designer System Prompt from above]",
+        "user_prompt": "Concept: {input}\nMeta: {meta_categorizer.output}\nDefinition: {wiki_fetch.output}\n\nDesign two timesteps.",
+        "output_parser": "json"
+      }
+    },
+    {
+      "id": "prompt_generator",
+      "type": "LLMChain",
+      "data": {
+        "model": "gpt-4",
+        "system_prompt": "[Prompt Generator System Prompt from above]",
+        "user_prompt": "Concept: {input}\nScenarios: {scenario_designer.output}\n\nGenerate image prompts.",
+        "output_parser": "json"
+      }
+    },
+    {
+      "id": "output",
+      "type": "Output",
+      "data": {
+        "value": "{prompt_generator.output}"
+      }
+    }
+  ],
+  "edges": [
+    {"source": "input", "target": "wiki_fetch"},
+    {"source": "input", "target": "meta_categorizer"},
+    {"source": "wiki_fetch", "target": "meta_categorizer"},
+    {"source": "meta_categorizer", "target": "scenario_designer"},
+    {"source": "scenario_designer", "target": "prompt_generator"},
+    {"source": "prompt_generator", "target": "output"}
+  ]
+}
