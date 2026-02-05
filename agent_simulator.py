@@ -1,7 +1,7 @@
 import os
 import json
-import requests
 import base64
+import requests
 from openai import OpenAI
 from dotenv import load_dotenv
 
@@ -13,6 +13,11 @@ load_dotenv()
 API_KEY = os.getenv("OPENAI_API_KEY")
 client = OpenAI(api_key=API_KEY)
 
+# 🚨 CONTROL FLAGS
+# True = Call API & Save Images. 
+# False = Print Prompts Only.
+GENERATE = False 
+
 # 🚨 MODEL SETTINGS
 LLM_MODEL = "gpt-5.2"          
 IMAGE_MODEL = "gpt-image-1.5"  
@@ -23,47 +28,63 @@ IMAGE_MODEL = "gpt-image-1.5"
 
 class EconomicStoryboardAgent:
     def __init__(self):
+        # ----------------------------------------------------------
+        # 1. THE "REALISM + CLARITY" DNA 
+        # ----------------------------------------------------------
         self.entity_style_dna = """
-        Visual Style: Minimalist 3D isometric, institutional design.
-        Material: Realistic steel/concrete machinery sitting on the glass base.
-        Lighting: Cinematic studio lighting with soft reflections on the floor.
+        Visual Style: High-fidelity, photorealistic miniature simulation.
+        
+        CRITICAL COMPOSITION RULES (Anti-Clutter):
+        - DISTINCT GROUPS: Do not clump agents/objects together. Use negative space to separate different elements.
+        - SILHOUETTES: Every object must have a clear, readable outline.
+        - ZONING: Organize the scene into clear 'zones' (e.g., Production Zone vs. Shipping Zone) rather than a chaotic mix.
+        - DEPTH: Use depth of field to keep the main action in sharp focus.
+        
+        Content Rules:
+        - NO METAPHORS (No magic, scales, monsters, balloons).
+        - SHOW THE MECHANISM (Price tags, inventory piles, idle machinery, shipping queues).
+        - INFRASTRUCTURE: Use realistic industry assets (conveyor belts, server racks, shipping containers).
+        - ACTORS: Realistic tiny humans in appropriate attire.
         """
         
         # ----------------------------------------------------------
-        # 💎 NEW BASE STYLE: "Glassmorphism / Tech-Neon"
+        # 2. THE "TECH-GLASS" BASE
         # ----------------------------------------------------------
         self.stage_settings = """
-        View: Isometric orthographic projection.
-        
-        Base: A thin, translucent frosted-glass platform (acrylic). 
-        - Shape: A sleek, rounded rectangle with smooth beveled edges.
-        - Glow: Soft neon blue/teal emission on the edges only.
-        - Thickness: Very slim/wafer-thin floating profile.
-        
-        Background: Pitch black void to make the neon edges pop.
-        Grid: Faint, laser-etched white grid lines on the glass surface.
-        """        
-
-
-        """ original
-        self.entity_style_dna =
-        Visual Style: Minimalist 3D isometric, institutional/civic design.
-        Material: Realistic steel/concrete, not cartoonish.
-        Lighting: Cinematic studio lighting.
-        
-        self.stage_settings =
-        View: Isometric orthographic.
-        Base: Rounded concrete base on black background.
-        Grid: Faint slanted grid on floor.
+        Stage Design:
+        - Base: A wafer-thin, translucent frosted-glass platform (acrylic style).
+        - Edges: Smooth, rounded corners with a soft neon blue/teal edge emission.
+        - Environment: Pitch black void. The only light comes from the scene and the base glow.
+        - Perspective: Isometric orthographic.
         """
-       
 
     def plan_scenes(self, concept):
-        print(f"🎬 Director ({LLM_MODEL}): Planning '{concept}'...")
+        print(f"🎬 Director ({LLM_MODEL}): Planning extended simulation for '{concept}'...")
+        
         prompt = f"""
-        Analyze "{concept}". Break into 1-3 scenes.
-        Return JSON ONLY: {{ "scenes": [ {{ "step": 1, "title": "Title", "sector": "Sector", "visual_action": "Action" }} ] }}
+        You are a Realistic Economic Simulator.
+        Goal: Visualize the concept "{concept}" using ONLY literal, physical economic activities.
+        
+        INSTRUCTIONS:
+        1. Analyze the complexity of the concept.
+        2. Break it down into a chronological sequence of simulation states.
+        3. DYNAMIC LENGTH: Use between 2 to 6 scenes. Do not rush. If the concept needs 5 steps to show the cause-and-effect properly, use 5 steps.
+        
+        STRICT VISUAL RULES:
+        - NO VISUAL METAPHORS.
+        - SHOW CAUSE & EFFECT (e.g., Step 1: Factory running; Step 2: Supply shortage; Step 3: Production halts).
+        
+        Return JSON ONLY: 
+        {{ "scenes": [ 
+            {{ 
+                "step": 1, 
+                "title": "State 1 Title", 
+                "sector": "Industry Type", 
+                "visual_action": "Detailed description emphasizing distinct object separation." 
+            }} 
+        ] }}
         """
+        
         try:
             response = client.chat.completions.create(
                 model=LLM_MODEL, 
@@ -77,70 +98,81 @@ class EconomicStoryboardAgent:
 
     def generate_prompt(self, scene_data):
         return f"""
-        Isometric icon of {scene_data['sector']}.
-        Action: {scene_data['visual_action']}.
+        A photorealistic 3D isometric simulation of {scene_data['sector']}.
+        
+        SCENE ACTION (Literal Economic Mechanism):
+        {scene_data['visual_action']}
+        
         {self.entity_style_dna}
         {self.stage_settings}
+        
+        Details:
+        - Step {scene_data.get('step', 1)}: {scene_data.get('title')}.
+        - Ensure high contrast between objects and the background for readability.
         """
 
     def render_storyboard(self, concept):
         scenes = self.plan_scenes(concept)
         if not scenes: return
 
-        print(f"📋 Plan approved: {len(scenes)} scenes.")
+        print(f"📋 Simulation Plan: {len(scenes)} states defined.")
         
         for scene in scenes:
-            print(f"\n🎨 Rendering Step {scene['step']} using {IMAGE_MODEL}...")
+            print(f"\n👉 Processing Step {scene['step']}: {scene['title']}...")
             prompt = self.generate_prompt(scene)
             filename = f"{concept.replace(' ', '_')}_step{scene['step']}.png"
             
+            # --------------------------------------------------
+            # 🛑 DRY RUN MODE
+            # --------------------------------------------------
+            if not GENERATE:
+                print("\n" + "="*60)
+                print(f"📝 PROMPT FOR STEP {scene['step']} (COPY BELOW):")
+                print("-" * 20)
+                print(prompt.strip())
+                print("-" * 20)
+                print("="*60 + "\n")
+                continue 
+
+            # --------------------------------------------------
+            # 🎨 GENERATE MODE
+            # --------------------------------------------------
             try:
-                # --------------------------------------------------
-                # 🛡️ SAFE BARE-BONES REQUEST
-                # --------------------------------------------------
+                print(f"   🎨 Sending to {IMAGE_MODEL}...")
+                
                 response = client.images.generate(
                     model=IMAGE_MODEL,
                     prompt=prompt,
                     size="1024x1024",
                     n=1
-                    # NO style, NO quality, NO response_format
                 )
                 
-                # --------------------------------------------------
-                # 🕵️ DATA EXTRACTION & DEBUGGING
-                # --------------------------------------------------
+                # 🕵️ DATA EXTRACTION
                 image_data = None
                 data_obj = response.data[0]
 
-                # Check 1: Standard URL
                 if getattr(data_obj, 'url', None):
-                    print("   ⬇️  Downloading from URL...")
                     image_data = requests.get(data_obj.url).content
-                
-                # Check 2: Base64 JSON
                 elif getattr(data_obj, 'b64_json', None):
-                    print("   🧩 Decoding Base64...")
                     image_data = base64.b64decode(data_obj.b64_json)
-                
-                # Check 3: Raw Dict (some custom models return dicts)
                 elif isinstance(data_obj, dict):
-                     if 'url' in data_obj:
-                         image_data = requests.get(data_obj['url']).content
-                     elif 'b64_json' in data_obj:
-                         image_data = base64.b64decode(data_obj['b64_json'])
+                     if 'url' in data_obj: image_data = requests.get(data_obj['url']).content
+                     elif 'b64_json' in data_obj: image_data = base64.b64decode(data_obj['b64_json'])
 
-                # 🛑 FAILURE HANDLING
                 if image_data:
                     with open(filename, 'wb') as f:
                         f.write(image_data)
-                    print(f"   ✅ Saved: {filename}")
+                    print(f"   ✅ Simulation Captured: {filename}")
                 else:
-                    print("   ❌ Error: Could not find image data in response.")
-                    print(f"   ⚠️ DEBUG RAW RESPONSE: {data_obj}")
+                    print(f"   ❌ Error: No image data found.")
 
             except Exception as e:
-                print(f"   ❌ API Request Failed: {e}")
+                print(f"   ❌ Simulation Failed: {e}")
 
 if __name__ == "__main__":
     agent = EconomicStoryboardAgent()
-    agent.render_storyboard("Fisher equation, which expresses the relationship between nominal interest rates, real interest rates, and inflation")
+    
+    # Test with a complex concept to trigger multiple steps
+    concept = "the Fisher equation, which expresses the relationship between nominal interest rates, real interest rates, and inflation" 
+    
+    agent.render_storyboard(concept)
